@@ -63,7 +63,9 @@ function showDirContents(dirPath) {
 
     let dirCount = 0;
     let fileCount = 0;
-
+    let largestFileSize = 0;
+    let largestFileName = "";
+    let totalSize = 0;
     const content = fs.readdirSync(dirPath);
 
     console.log("\nContents");
@@ -76,7 +78,7 @@ function showDirContents(dirPath) {
         const itemStats = fs.statSync(itemPath);
 
         let itemType;
-
+        
         if (itemStats.isDirectory()) {
             itemType = "Directory";
             dirCount++;
@@ -84,16 +86,27 @@ function showDirContents(dirPath) {
         else if (itemStats.isFile()) {
             itemType = "File";
             fileCount++;
+            if(itemStats.size>largestFileSize){
+                largestFileSize = itemStats.size;
+                largestFileName = item;
+            }
         }
 
         console.log(
             `${item.padEnd(25)} ${itemType.padEnd(12)} ${String(itemStats.size).padStart(8)} B`
         );
+        totalSize +=itemStats.size;
     });
+    if (fileCount === 0) {
+        console.log("Name : None");
+        console.log("Size : 0 B");
+    }
 
     console.log("------------------------------------------------");
-    console.log(`Directories : ${dirCount}`);
-    console.log(`Files       : ${fileCount}`);
+    console.log(`Directories       : ${dirCount}`);
+    console.log(`Files             : ${fileCount}`);
+    console.log(`Largest file      : ${largestFileName}      : ${largestFileSize}`)
+    console.log(`Total size        : ${totalSize}`)
 }
 
 function showItemExtensions(dirPath) {
