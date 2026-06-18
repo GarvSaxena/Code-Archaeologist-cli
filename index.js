@@ -1,12 +1,6 @@
+#!/usr/bin/env node
 const fs = require("fs");
-const readline = require("readline");
 const path = require("path");
-
-const rl = readline.createInterface({
-    input: process.stdin,
-    output: process.stdout
-});
-
 function line() {
     console.log("============================================================");
 }
@@ -18,23 +12,30 @@ function section(title) {
     line();
 }
 
-function showMenu() {
+function init() {
 
     line();
     console.log("                    CODE ARCHAEOLOGIST");
     line();
 
-    rl.question("\nEnter the path: ", (dirPath) => {
+    const args = process.argv.slice(2);
+    let targetPath = ".";
+    
+    // Check for target path
+    const pathArg = args.find(arg => !arg.startsWith("--"));
+    if (pathArg) {
+        targetPath = pathArg;
+    }
 
-        if (fs.existsSync(dirPath)) {
-            console.log("\nScanning project...\n");
-            getDirStats(dirPath);
-        }
-        else {
-            console.log("\nInvalid path!\n");
-            showMenu();
-        }
-    });
+    const resolvedPath = path.resolve(targetPath);
+
+    if (fs.existsSync(resolvedPath)) {
+        console.log(`\nScanning project at: ${resolvedPath}\n`);
+        getDirStats(resolvedPath);
+    }
+    else {
+        console.log(`\nInvalid path: ${targetPath}\n`);
+    }
 }
 
 function getDirStats(dirPath) {
@@ -66,8 +67,6 @@ function getDirStats(dirPath) {
     line();
     console.log("Analysis Complete");
     line();
-
-    rl.close();
 }
 
 function scanDir(dirPath) {
@@ -78,6 +77,15 @@ function scanDir(dirPath) {
 
     let largestFileName = "None";
     let largestFileSize = 0;
+
+    let smallestFileName = "None";
+    let smallestFileSize = Infinity;
+    
+    let emptyFilesCount = 0;
+    let emptyFilesList = [];
+    
+    let largestFolderName = "None";
+    let largestFolderSize = 0;
 
     const extensions = {};
 
@@ -90,7 +98,7 @@ function scanDir(dirPath) {
     console.log("-".repeat(75));
 
     function traverse(currentPath) {
-
+        let currentDirSize = 0;
         const content = fs.readdirSync(currentPath);
 
         content.forEach((item) => {
@@ -111,6 +119,14 @@ function scanDir(dirPath) {
 
                 itemType = "Directory";
                 dirCount++;
+                
+                const dirSize = traverse(itemPath);
+                currentDirSize += dirSize;
+                
+                if (dirSize > largestFolderSize) {
+                    largestFolderSize = dirSize;
+                    largestFolderName = itemPath;
+                }
 
             }
             else {
@@ -119,10 +135,21 @@ function scanDir(dirPath) {
                 fileCount++;
 
                 totalSize += itemStats.size;
+                currentDirSize += itemStats.size;
 
                 if (itemStats.size > largestFileSize) {
                     largestFileSize = itemStats.size;
                     largestFileName = itemPath;
+                }
+                
+                if (itemStats.size < smallestFileSize) {
+                    smallestFileSize = itemStats.size;
+                    smallestFileName = itemPath;
+                }
+                
+                if (itemStats.size === 0) {
+                    emptyFilesCount++;
+                    emptyFilesList.push(itemPath);
                 }
 
                 const ext = path.extname(itemPath);
@@ -139,10 +166,9 @@ function scanDir(dirPath) {
                 `${itemPath.padEnd(50)}${itemType.padEnd(15)}${itemStats.size} B`
             );
 
-            if (itemStats.isDirectory()) {
-                traverse(itemPath);
-            }
         });
+        
+        return currentDirSize;
     }
 
     traverse(dirPath);
@@ -157,9 +183,29 @@ function scanDir(dirPath) {
 
     console.log("Largest File");
     console.log("-".repeat(30));
-
     console.log(`Name : ${largestFileName}`);
     console.log(`Size : ${largestFileSize} B`);
+    console.log();
+
+    console.log("Smallest File");
+    console.log("-".repeat(30));
+    console.log(`Name : ${smallestFileName === "None" ? "None" : smallestFileName}`);
+    console.log(`Size : ${smallestFileSize === Infinity ? 0 : smallestFileSize} B`);
+    console.log();
+    
+    console.log("Largest Folder");
+    console.log("-".repeat(30));
+    console.log(`Name : ${largestFolderName}`);
+    console.log(`Size : ${largestFolderSize} B`);
+    console.log();
+    
+    console.log("Empty Files");
+    console.log("-".repeat(30));
+    console.log(`Count: ${emptyFilesCount}`);
+    if (emptyFilesCount > 0) {
+        emptyFilesList.slice(0, 5).forEach(f => console.log(`  - ${f}`));
+        if (emptyFilesCount > 5) console.log(`  ... and ${emptyFilesCount - 5} more`);
+    }
 
     section("EXTENSIONS");
 
@@ -183,4 +229,4 @@ function scanDir(dirPath) {
     }
 }
 
-showMenu();
+init();

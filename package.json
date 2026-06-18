@@ -1,0 +1,14 @@
+{
+  "name": "code-archaeologist",
+  "version": "1.0.0",
+  "description": "A Node.js CLI tool for analyzing files and directories.",
+  "main": "index.js",
+  "bin": {
+    "codearch": "./index.js"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC"
+}
