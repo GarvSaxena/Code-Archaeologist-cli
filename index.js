@@ -1,21 +1,23 @@
 #!/usr/bin/env node
 const fs = require("fs");
 const path = require("path");
+const chalk = require("chalk");
+
 function line() {
-    console.log("============================================================");
+    console.log(chalk.cyan("============================================================"));
 }
 
 function section(title) {
     console.log();
     line();
-    console.log(title);
+    console.log(chalk.cyan.bold(title));
     line();
 }
 
 function init() {
 
     line();
-    console.log("                    CODE ARCHAEOLOGIST");
+    console.log(chalk.cyan.bold("                    CODE ARCHAEOLOGIST"));
     line();
 
     const args = process.argv.slice(2);
@@ -30,11 +32,11 @@ function init() {
     const resolvedPath = path.resolve(targetPath);
 
     if (fs.existsSync(resolvedPath)) {
-        console.log(`\nScanning project at: ${resolvedPath}\n`);
+        console.log(chalk.green(`\nScanning project at: ${resolvedPath}\n`));
         getDirStats(resolvedPath);
     }
     else {
-        console.log(`\nInvalid path: ${targetPath}\n`);
+        console.log(chalk.red(`\nInvalid path: ${targetPath}\n`));
     }
 }
 
@@ -53,19 +55,19 @@ function getDirStats(dirPath) {
 
     section("PROJECT INFORMATION");
 
-    console.log(`Name : ${path.basename(dirPath)}`);
-    console.log(`Type : ${type}`);
+    console.log(`${chalk.bold("Name")} : ${chalk.green(path.basename(dirPath))}`);
+    console.log(`${chalk.bold("Type")} : ${chalk.yellow(type)}`);
 
     if (stats.isDirectory()) {
         scanDir(dirPath);
     }
     else {
-        console.log("\nSingle file selected.");
+        console.log(chalk.yellow("\nSingle file selected."));
     }
 
     console.log();
     line();
-    console.log("Analysis Complete");
+    console.log(chalk.green.bold("Analysis Complete"));
     line();
 }
 
@@ -92,10 +94,10 @@ function scanDir(dirPath) {
     section("CONTENTS");
 
     console.log(
-        `${"Path".padEnd(50)}${"Type".padEnd(15)}Size`
+        chalk.bold(`${"Path".padEnd(50)}${"Type".padEnd(15)}Size`)
     );
 
-    console.log("-".repeat(75));
+    console.log(chalk.gray("-".repeat(75)));
 
     function traverse(currentPath) {
         let currentDirSize = 0;
@@ -163,7 +165,7 @@ function scanDir(dirPath) {
             }
 
             console.log(
-                `${itemPath.padEnd(50)}${itemType.padEnd(15)}${itemStats.size} B`
+                `${chalk.cyan(itemPath.padEnd(50))}${itemType === "Directory" ? chalk.yellow(itemType.padEnd(15)) : chalk.green(itemType.padEnd(15))}${chalk.magenta(itemStats.size + " B")}`
             );
 
         });
@@ -175,55 +177,55 @@ function scanDir(dirPath) {
 
     section("STATISTICS");
 
-    console.log(`Directories : ${dirCount}`);
-    console.log(`Files       : ${fileCount}`);
-    console.log(`Total Size  : ${totalSize} B`);
+    console.log(`${chalk.bold("Directories")} : ${chalk.yellow(dirCount)}`);
+    console.log(`${chalk.bold("Files")}       : ${chalk.green(fileCount)}`);
+    console.log(`${chalk.bold("Total Size")}  : ${chalk.magenta(totalSize + " B")}`);
 
     console.log();
 
-    console.log("Largest File");
-    console.log("-".repeat(30));
-    console.log(`Name : ${largestFileName}`);
-    console.log(`Size : ${largestFileSize} B`);
+    console.log(chalk.bold.blue("Largest File"));
+    console.log(chalk.gray("-".repeat(30)));
+    console.log(`${chalk.bold("Name")} : ${chalk.cyan(largestFileName)}`);
+    console.log(`${chalk.bold("Size")} : ${chalk.magenta(largestFileSize + " B")}`);
     console.log();
 
-    console.log("Smallest File");
-    console.log("-".repeat(30));
-    console.log(`Name : ${smallestFileName === "None" ? "None" : smallestFileName}`);
-    console.log(`Size : ${smallestFileSize === Infinity ? 0 : smallestFileSize} B`);
+    console.log(chalk.bold.blue("Smallest File"));
+    console.log(chalk.gray("-".repeat(30)));
+    console.log(`${chalk.bold("Name")} : ${chalk.cyan(smallestFileName === "None" ? "None" : smallestFileName)}`);
+    console.log(`${chalk.bold("Size")} : ${chalk.magenta((smallestFileSize === Infinity ? 0 : smallestFileSize) + " B")}`);
     console.log();
     
-    console.log("Largest Folder");
-    console.log("-".repeat(30));
-    console.log(`Name : ${largestFolderName}`);
-    console.log(`Size : ${largestFolderSize} B`);
+    console.log(chalk.bold.blue("Largest Folder"));
+    console.log(chalk.gray("-".repeat(30)));
+    console.log(`${chalk.bold("Name")} : ${chalk.cyan(largestFolderName)}`);
+    console.log(`${chalk.bold("Size")} : ${chalk.magenta(largestFolderSize + " B")}`);
     console.log();
     
-    console.log("Empty Files");
-    console.log("-".repeat(30));
-    console.log(`Count: ${emptyFilesCount}`);
+    console.log(chalk.bold.blue("Empty Files"));
+    console.log(chalk.gray("-".repeat(30)));
+    console.log(`${chalk.bold("Count")}: ${chalk.yellow(emptyFilesCount)}`);
     if (emptyFilesCount > 0) {
-        emptyFilesList.slice(0, 5).forEach(f => console.log(`  - ${f}`));
-        if (emptyFilesCount > 5) console.log(`  ... and ${emptyFilesCount - 5} more`);
+        emptyFilesList.slice(0, 5).forEach(f => console.log(chalk.gray(`  - ${f}`)));
+        if (emptyFilesCount > 5) console.log(chalk.gray(`  ... and ${emptyFilesCount - 5} more`));
     }
 
     section("EXTENSIONS");
 
     if (Object.keys(extensions).length === 0) {
-        console.log("No files found.");
+        console.log(chalk.yellow("No files found."));
     }
     else {
 
         console.log(
-            `${"Extension".padEnd(20)}Count`
+            chalk.bold(`${"Extension".padEnd(20)}Count`)
         );
 
-        console.log("-".repeat(30));
+        console.log(chalk.gray("-".repeat(30)));
 
         for (const ext in extensions) {
 
             console.log(
-                `${(ext || "[no extension]").padEnd(20)}${extensions[ext]}`
+                `${chalk.cyan((ext || "[no extension]").padEnd(20))}${chalk.green(extensions[ext])}`
             );
         }
     }
