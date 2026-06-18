@@ -14,6 +14,21 @@ function section(title) {
     line();
 }
 
+function showHelp() {
+    console.log(chalk.cyan.bold("\nCode Archaeologist - CLI Usage Guide"));
+    console.log(chalk.gray("-".repeat(40)));
+    console.log(`${chalk.yellow("Usage:")} codearch [path] [options]\n`);
+    
+    console.log(chalk.bold("Examples:"));
+    console.log(`  codearch .               ${chalk.gray("Scan the current directory")}`);
+    console.log(`  codearch src             ${chalk.gray("Scan the 'src' folder")}`);
+    console.log(`  codearch --help          ${chalk.gray("Show this help menu")}\n`);
+    
+    console.log(chalk.bold("Upcoming Options (in development):"));
+    console.log(`  --tree                   ${chalk.gray("Show directory tree view")}`);
+    console.log(`  --stats                  ${chalk.gray("Show detailed project stats")}\n`);
+}
+
 function init() {
 
     line();
@@ -21,6 +36,12 @@ function init() {
     line();
 
     const args = process.argv.slice(2);
+    
+    if (args.includes("--help") || args.includes("-h")) {
+        showHelp();
+        return;
+    }
+
     let targetPath = ".";
     
     // Check for target path
