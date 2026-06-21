@@ -119,6 +119,8 @@ function scanDir(dirPath, options) {
     let largestFolderName = "None";
     let largestFolderSize = 0;
 
+    let todoItems = [];
+
     const extensions = {};
     const countableExtensions = [".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".scss", ".json", ".md", ".txt"];
 
@@ -202,7 +204,19 @@ function scanDir(dirPath, options) {
                 if (countableExtensions.includes(ext) && itemStats.size > 0) {
                     try {
                         const fileContent = fs.readFileSync(itemPath, "utf-8");
-                        totalLinesOfCode += fileContent.split("\n").length;
+                        const lines = fileContent.split("\n");
+                        totalLinesOfCode += lines.length;
+                        
+                        const todoRegex = /\b(TODO|FIXME|BUG|HACK|NOTE)\b/i;
+                        lines.forEach((line, lineNum) => {
+                            if (todoRegex.test(line)) {
+                                todoItems.push({
+                                    file: itemPath,
+                                    line: lineNum + 1,
+                                    content: line.trim().substring(0, 80)
+                                });
+                            }
+                        });
                     } catch (e) {
                         // Ignore binary or unreadable
                     }
@@ -227,6 +241,36 @@ function scanDir(dirPath, options) {
     traverse(dirPath);
 
     if (options.stats) {
+        const pkgPath = path.join(dirPath, "package.json");
+        if (fs.existsSync(pkgPath)) {
+            try {
+                const pkgData = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+                section("PACKAGE ANALYSIS");
+                console.log(`${chalk.bold("Name")}        : ${chalk.cyan(pkgData.name || "Unknown")}`);
+                console.log(`${chalk.bold("Version")}     : ${chalk.cyan(pkgData.version || "Unknown")}`);
+                
+                const deps = pkgData.dependencies ? Object.keys(pkgData.dependencies).length : 0;
+                const devDeps = pkgData.devDependencies ? Object.keys(pkgData.devDependencies).length : 0;
+                const scripts = pkgData.scripts ? Object.keys(pkgData.scripts).length : 0;
+                
+                console.log(`${chalk.bold("Dependencies")}: ${chalk.yellow(deps)}`);
+                console.log(`${chalk.bold("Dev Deps")}    : ${chalk.yellow(devDeps)}`);
+                console.log(`${chalk.bold("Scripts")}     : ${chalk.yellow(scripts)}`);
+            } catch(e) {}
+        }
+
+        if (todoItems.length > 0) {
+            section("TODO SCANNER");
+            console.log(`${chalk.bold("Total Found")}: ${chalk.yellow(todoItems.length)}\n`);
+            todoItems.slice(0, 10).forEach(item => {
+                console.log(`${chalk.cyan(item.file)}:${chalk.yellow(item.line)}`);
+                console.log(`  ${chalk.gray(item.content)}`);
+            });
+            if (todoItems.length > 10) {
+                console.log(chalk.gray(`\n  ... and ${todoItems.length - 10} more`));
+            }
+        }
+
         section("STATISTICS");
 
         console.log(`${chalk.bold("Directories")} : ${chalk.yellow(dirCount)}`);
