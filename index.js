@@ -42,9 +42,17 @@ function init() {
         return;
     }
 
-    let targetPath = ".";
+    const options = {
+        tree: args.includes("--tree"),
+        stats: args.includes("--stats")
+    };
     
-    // Check for target path
+    if (!options.tree && !options.stats) {
+        options.tree = true;
+        options.stats = true;
+    }
+
+    let targetPath = ".";
     const pathArg = args.find(arg => !arg.startsWith("--"));
     if (pathArg) {
         targetPath = pathArg;
@@ -54,14 +62,14 @@ function init() {
 
     if (fs.existsSync(resolvedPath)) {
         console.log(chalk.green(`\nScanning project at: ${resolvedPath}\n`));
-        getDirStats(resolvedPath);
+        getDirStats(resolvedPath, options);
     }
     else {
         console.log(chalk.red(`\nInvalid path: ${targetPath}\n`));
     }
 }
 
-function getDirStats(dirPath) {
+function getDirStats(dirPath, options) {
 
     const stats = fs.statSync(dirPath);
 
@@ -80,7 +88,7 @@ function getDirStats(dirPath) {
     console.log(`${chalk.bold("Type")} : ${chalk.yellow(type)}`);
 
     if (stats.isDirectory()) {
-        scanDir(dirPath);
+        scanDir(dirPath, options);
     }
     else {
         console.log(chalk.yellow("\nSingle file selected."));
@@ -92,11 +100,12 @@ function getDirStats(dirPath) {
     line();
 }
 
-function scanDir(dirPath) {
+function scanDir(dirPath, options) {
 
     let dirCount = 0;
     let fileCount = 0;
     let totalSize = 0;
+    let totalLinesOfCode = 0;
 
     let largestFileName = "None";
     let largestFileSize = 0;
@@ -111,27 +120,29 @@ function scanDir(dirPath) {
     let largestFolderSize = 0;
 
     const extensions = {};
+    const countableExtensions = [".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".scss", ".json", ".md", ".txt"];
 
-    section("CONTENTS");
+    if (options.tree) {
+        section("DIRECTORY TREE");
+        console.log(chalk.yellow(path.basename(dirPath)));
+    } else if (options.stats) {
+        section("CONTENTS");
+        console.log(
+            chalk.bold(`${"Path".padEnd(50)}${"Type".padEnd(15)}Size`)
+        );
+        console.log(chalk.gray("-".repeat(75)));
+    }
 
-    console.log(
-        chalk.bold(`${"Path".padEnd(50)}${"Type".padEnd(15)}Size`)
-    );
-
-    console.log(chalk.gray("-".repeat(75)));
-
-    function traverse(currentPath) {
+    function traverse(currentPath, prefix = "") {
         let currentDirSize = 0;
-        const content = fs.readdirSync(currentPath);
+        let content = fs.readdirSync(currentPath);
+        
+        content = content.filter(item => item !== "node_modules" && item !== ".git");
 
-        content.forEach((item) => {
-
-            if (
-                item === "node_modules" ||
-                item === ".git"
-            ) {
-                return;
-            }
+        content.forEach((item, index) => {
+            const isLast = index === content.length - 1;
+            const treePrefix = prefix + (isLast ? "└── " : "├── ");
+            const nextPrefix = prefix + (isLast ? "    " : "│   ");
 
             const itemPath = path.join(currentPath, item);
             const itemStats = fs.statSync(itemPath);
@@ -143,7 +154,11 @@ function scanDir(dirPath) {
                 itemType = "Directory";
                 dirCount++;
                 
-                const dirSize = traverse(itemPath);
+                if (options.tree) {
+                    console.log(`${treePrefix}${chalk.yellow(item)}`);
+                }
+
+                const dirSize = traverse(itemPath, nextPrefix);
                 currentDirSize += dirSize;
                 
                 if (dirSize > largestFolderSize) {
@@ -183,11 +198,26 @@ function scanDir(dirPath) {
                 else {
                     extensions[ext] = 1;
                 }
+                
+                if (countableExtensions.includes(ext) && itemStats.size > 0) {
+                    try {
+                        const fileContent = fs.readFileSync(itemPath, "utf-8");
+                        totalLinesOfCode += fileContent.split("\n").length;
+                    } catch (e) {
+                        // Ignore binary or unreadable
+                    }
+                }
+
+                if (options.tree) {
+                    console.log(`${treePrefix}${chalk.cyan(item)}`);
+                }
             }
 
-            console.log(
-                `${chalk.cyan(itemPath.padEnd(50))}${itemType === "Directory" ? chalk.yellow(itemType.padEnd(15)) : chalk.green(itemType.padEnd(15))}${chalk.magenta(itemStats.size + " B")}`
-            );
+            if (options.stats && !options.tree) {
+                console.log(
+                    `${chalk.cyan(itemPath.padEnd(50))}${itemType === "Directory" ? chalk.yellow(itemType.padEnd(15)) : chalk.green(itemType.padEnd(15))}${chalk.magenta(itemStats.size + " B")}`
+                );
+            }
 
         });
         
@@ -196,58 +226,55 @@ function scanDir(dirPath) {
 
     traverse(dirPath);
 
-    section("STATISTICS");
+    if (options.stats) {
+        section("STATISTICS");
 
-    console.log(`${chalk.bold("Directories")} : ${chalk.yellow(dirCount)}`);
-    console.log(`${chalk.bold("Files")}       : ${chalk.green(fileCount)}`);
-    console.log(`${chalk.bold("Total Size")}  : ${chalk.magenta(totalSize + " B")}`);
+        console.log(`${chalk.bold("Directories")} : ${chalk.yellow(dirCount)}`);
+        console.log(`${chalk.bold("Files")}       : ${chalk.green(fileCount)}`);
+        console.log(`${chalk.bold("Lines of Code")}: ${chalk.green(totalLinesOfCode)}`);
+        console.log(`${chalk.bold("Total Size")}  : ${chalk.magenta(totalSize + " B")}`);
 
-    console.log();
+        console.log();
 
-    console.log(chalk.bold.blue("Largest File"));
-    console.log(chalk.gray("-".repeat(30)));
-    console.log(`${chalk.bold("Name")} : ${chalk.cyan(largestFileName)}`);
-    console.log(`${chalk.bold("Size")} : ${chalk.magenta(largestFileSize + " B")}`);
-    console.log();
-
-    console.log(chalk.bold.blue("Smallest File"));
-    console.log(chalk.gray("-".repeat(30)));
-    console.log(`${chalk.bold("Name")} : ${chalk.cyan(smallestFileName === "None" ? "None" : smallestFileName)}`);
-    console.log(`${chalk.bold("Size")} : ${chalk.magenta((smallestFileSize === Infinity ? 0 : smallestFileSize) + " B")}`);
-    console.log();
-    
-    console.log(chalk.bold.blue("Largest Folder"));
-    console.log(chalk.gray("-".repeat(30)));
-    console.log(`${chalk.bold("Name")} : ${chalk.cyan(largestFolderName)}`);
-    console.log(`${chalk.bold("Size")} : ${chalk.magenta(largestFolderSize + " B")}`);
-    console.log();
-    
-    console.log(chalk.bold.blue("Empty Files"));
-    console.log(chalk.gray("-".repeat(30)));
-    console.log(`${chalk.bold("Count")}: ${chalk.yellow(emptyFilesCount)}`);
-    if (emptyFilesCount > 0) {
-        emptyFilesList.slice(0, 5).forEach(f => console.log(chalk.gray(`  - ${f}`)));
-        if (emptyFilesCount > 5) console.log(chalk.gray(`  ... and ${emptyFilesCount - 5} more`));
-    }
-
-    section("EXTENSIONS");
-
-    if (Object.keys(extensions).length === 0) {
-        console.log(chalk.yellow("No files found."));
-    }
-    else {
-
-        console.log(
-            chalk.bold(`${"Extension".padEnd(20)}Count`)
-        );
-
+        console.log(chalk.bold.blue("Largest File"));
         console.log(chalk.gray("-".repeat(30)));
+        console.log(`${chalk.bold("Name")} : ${chalk.cyan(largestFileName)}`);
+        console.log(`${chalk.bold("Size")} : ${chalk.magenta(largestFileSize + " B")}`);
+        console.log();
 
-        for (const ext in extensions) {
+        console.log(chalk.bold.blue("Smallest File"));
+        console.log(chalk.gray("-".repeat(30)));
+        console.log(`${chalk.bold("Name")} : ${chalk.cyan(smallestFileName === "None" ? "None" : smallestFileName)}`);
+        console.log(`${chalk.bold("Size")} : ${chalk.magenta((smallestFileSize === Infinity ? 0 : smallestFileSize) + " B")}`);
+        console.log();
+        
+        console.log(chalk.bold.blue("Largest Folder"));
+        console.log(chalk.gray("-".repeat(30)));
+        console.log(`${chalk.bold("Name")} : ${chalk.cyan(largestFolderName)}`);
+        console.log(`${chalk.bold("Size")} : ${chalk.magenta(largestFolderSize + " B")}`);
+        console.log();
+        
+        console.log(chalk.bold.blue("Empty Files"));
+        console.log(chalk.gray("-".repeat(30)));
+        console.log(`${chalk.bold("Count")}: ${chalk.yellow(emptyFilesCount)}`);
+        if (emptyFilesCount > 0) {
+            emptyFilesList.slice(0, 5).forEach(f => console.log(chalk.gray(`  - ${f}`)));
+            if (emptyFilesCount > 5) console.log(chalk.gray(`  ... and ${emptyFilesCount - 5} more`));
+        }
 
-            console.log(
-                `${chalk.cyan((ext || "[no extension]").padEnd(20))}${chalk.green(extensions[ext])}`
-            );
+        section("EXTENSIONS");
+
+        if (Object.keys(extensions).length === 0) {
+            console.log(chalk.yellow("No files found."));
+        }
+        else {
+            console.log(chalk.bold(`${"Extension".padEnd(20)}Count`));
+            console.log(chalk.gray("-".repeat(30)));
+            for (const ext in extensions) {
+                console.log(
+                    `${chalk.cyan((ext || "[no extension]").padEnd(20))}${chalk.green(extensions[ext])}`
+                );
+            }
         }
     }
 }
