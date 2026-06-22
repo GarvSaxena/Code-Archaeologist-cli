@@ -19,15 +19,22 @@ function showHelp() {
     console.log(chalk.gray("-".repeat(40)));
     console.log(`${chalk.yellow("Usage:")} codearch [path] [options]\n`);
     
+    console.log(chalk.bold("Features Included:"));
+    console.log(`  ${chalk.green("✔")} File size & folder metrics`);
+    console.log(`  ${chalk.green("✔")} Lines of Code (LOC) counter`);
+    console.log(`  ${chalk.green("✔")} Code repetitions tracker`);
+    console.log(`  ${chalk.green("✔")} TODO/BUG/FIXME scanner`);
+    console.log(`  ${chalk.green("✔")} package.json analyzer\n`);
+
     console.log(chalk.bold("Examples:"));
     console.log(`  codearch .               ${chalk.gray("Scan the current directory")}`);
-    console.log(`  codearch src             ${chalk.gray("Scan the 'src' folder")}`);
-    console.log(`  codearch --help          ${chalk.gray("Show this help menu")}\n`);
+    console.log(`  codearch src             ${chalk.gray("Scan the 'src' folder")}\n`);
     
     console.log(chalk.bold("Options:"));
     console.log(`  --tree                   ${chalk.gray("Show directory tree view")}`);
     console.log(`  --stats                  ${chalk.gray("Show detailed project stats")}`);
-    console.log(`  --export                 ${chalk.gray("Export report to codearch-report.json")}\n`);
+    console.log(`  --export                 ${chalk.gray("Export report to codearch-report.json")}`);
+    console.log(`  --help, -h               ${chalk.gray("Show this help menu")}\n`);
 }
 
 function init() {
