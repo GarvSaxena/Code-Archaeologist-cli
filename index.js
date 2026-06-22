@@ -24,9 +24,10 @@ function showHelp() {
     console.log(`  codearch src             ${chalk.gray("Scan the 'src' folder")}`);
     console.log(`  codearch --help          ${chalk.gray("Show this help menu")}\n`);
     
-    console.log(chalk.bold("Upcoming Options (in development):"));
+    console.log(chalk.bold("Options:"));
     console.log(`  --tree                   ${chalk.gray("Show directory tree view")}`);
-    console.log(`  --stats                  ${chalk.gray("Show detailed project stats")}\n`);
+    console.log(`  --stats                  ${chalk.gray("Show detailed project stats")}`);
+    console.log(`  --export                 ${chalk.gray("Export report to codearch-report.json")}\n`);
 }
 
 function init() {
@@ -44,7 +45,8 @@ function init() {
 
     const options = {
         tree: args.includes("--tree"),
-        stats: args.includes("--stats")
+        stats: args.includes("--stats"),
+        export: args.includes("--export")
     };
     
     if (!options.tree && !options.stats) {
@@ -120,6 +122,9 @@ function scanDir(dirPath, options) {
     let largestFolderSize = 0;
 
     let todoItems = [];
+
+    const lineHashes = new Set();
+    let repeatedLinesCount = 0;
 
     const extensions = {};
     const countableExtensions = [".js", ".jsx", ".ts", ".tsx", ".html", ".css", ".scss", ".json", ".md", ".txt"];
@@ -209,11 +214,20 @@ function scanDir(dirPath, options) {
                         
                         const todoRegex = /\b(TODO|FIXME|BUG|HACK|NOTE)\b/i;
                         lines.forEach((line, lineNum) => {
+                            const trimmedLine = line.trim();
+                            if (trimmedLine.length > 5) {
+                                if (lineHashes.has(trimmedLine)) {
+                                    repeatedLinesCount++;
+                                } else {
+                                    lineHashes.add(trimmedLine);
+                                }
+                            }
+
                             if (todoRegex.test(line)) {
                                 todoItems.push({
                                     file: itemPath,
                                     line: lineNum + 1,
-                                    content: line.trim().substring(0, 80)
+                                    content: trimmedLine.substring(0, 80)
                                 });
                             }
                         });
@@ -276,6 +290,7 @@ function scanDir(dirPath, options) {
         console.log(`${chalk.bold("Directories")} : ${chalk.yellow(dirCount)}`);
         console.log(`${chalk.bold("Files")}       : ${chalk.green(fileCount)}`);
         console.log(`${chalk.bold("Lines of Code")}: ${chalk.green(totalLinesOfCode)}`);
+        console.log(`${chalk.bold("Repeated Lines")}: ${chalk.yellow(repeatedLinesCount)}`);
         console.log(`${chalk.bold("Total Size")}  : ${chalk.magenta(totalSize + " B")}`);
 
         console.log();
@@ -320,6 +335,24 @@ function scanDir(dirPath, options) {
                 );
             }
         }
+    }
+
+    if (options.export) {
+        const report = {
+            directories: dirCount,
+            files: fileCount,
+            linesOfCode: totalLinesOfCode,
+            repeatedLines: repeatedLinesCount,
+            totalSize: totalSize,
+            largestFile: { name: largestFileName, size: largestFileSize },
+            smallestFile: { name: smallestFileName, size: smallestFileSize },
+            largestFolder: { name: largestFolderName, size: largestFolderSize },
+            emptyFiles: { count: emptyFilesCount, files: emptyFilesList },
+            todoItemsCount: todoItems.length,
+            extensions: extensions
+        };
+        fs.writeFileSync(path.join(process.cwd(), "codearch-report.json"), JSON.stringify(report, null, 2));
+        console.log(chalk.green.bold("\nReport exported to codearch-report.json"));
     }
 }
 
