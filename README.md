@@ -22,14 +22,21 @@ To use Code Archaeologist locally on your machine:
 2. Navigate into the project folder:
 
    ```bash
-   cd "Code Archaeologist"
+   cd Code-Archaeologist-cli
    ```
 
 3. Install dependencies and link the package globally:
 
+   **For Windows:**
    ```bash
    npm install
    npm link
+   ```
+
+   **For Linux / macOS:**
+   ```bash
+   npm install
+   sudo npm link
    ```
 
 ## Usage
@@ -55,5 +62,3 @@ codearch "C:\Projects\My App"
 | `--help` | **Help Menu**: Shows the CLI usage guide and options. |
 
 ---
-
-*Built with Node.js & JavaScript.*
