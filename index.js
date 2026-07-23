@@ -130,7 +130,7 @@ function scanDir(dirPath, options) {
 
     let todoItems = [];
 
-    const lineHashes = new Set();
+    const lineHashes = new Map();
     let repeatedLinesCount = 0;
 
     const extensions = {};
@@ -151,7 +151,8 @@ function scanDir(dirPath, options) {
         let currentDirSize = 0;
         let content = fs.readdirSync(currentPath);
         
-        content = content.filter(item => item !== "node_modules" && item !== ".git");
+        const ignoredDirs = ["node_modules", ".git", "dist", "build", ".vscode", ".idea", "coverage", ".next", "out"];
+        content = content.filter(item => !ignoredDirs.includes(item));
 
         content.forEach((item, index) => {
             const isLast = index === content.length - 1;
@@ -220,24 +221,54 @@ function scanDir(dirPath, options) {
                         totalLinesOfCode += lines.length;
                         
                         const todoRegex = /\b(TODO|FIXME|BUG|HACK|NOTE)\b/i;
+                        let window = [];
+                        
                         lines.forEach((line, lineNum) => {
-                            const trimmedLine = line.trim();
-                            if (trimmedLine.length > 5) {
-                                if (lineHashes.has(trimmedLine)) {
-                                    repeatedLinesCount++;
-                                } else {
-                                    lineHashes.add(trimmedLine);
-                                }
-                            }
-
                             if (todoRegex.test(line)) {
                                 todoItems.push({
                                     file: itemPath,
                                     line: lineNum + 1,
-                                    content: trimmedLine.substring(0, 80)
+                                    content: line.trim().substring(0, 80)
                                 });
                             }
                         });
+
+                        if (item !== "package.json" && item !== "package-lock.json") {
+                            let currentBlock = [];
+                            let blockStart = 0;
+                            lines.forEach((line, lineNum) => {
+                                const trimmedLine = line.trim();
+                                if (trimmedLine.length > 0) {
+                                    if (currentBlock.length === 0) blockStart = lineNum + 1;
+                                    currentBlock.push(line);
+                                    if (currentBlock.length > 3) currentBlock.shift();
+                                } else {
+                                    currentBlock = [];
+                                }
+
+                                if (currentBlock.length === 3) {
+                                    const blockStr = currentBlock.join('\n');
+                                    // Heuristic to ignore simple object declarations/schemas (e.g. Mongoose)
+                                    // A true logic block usually contains an assignment (=) or a function call/params (()
+                                    const isBoilerplate = !(/[=(]/.test(blockStr)) || /(type:\s*[A-Z]|required:\s*(true|false))/i.test(blockStr);
+                                    
+                                    if (blockStr.length > 40 && !isBoilerplate) {
+                                        if (lineHashes.has(blockStr)) {
+                                            repeatedLinesCount++;
+                                            const existing = lineHashes.get(blockStr);
+                                            existing.count++;
+                                            existing.locations.push({ file: itemPath, line: blockStart });
+                                        } else {
+                                            lineHashes.set(blockStr, {
+                                                content: blockStr,
+                                                count: 1,
+                                                locations: [{ file: itemPath, line: blockStart }]
+                                            });
+                                        }
+                                    }
+                                }
+                            });
+                        }
                     } catch (e) {
                         // Ignore binary or unreadable
                     }
@@ -289,6 +320,30 @@ function scanDir(dirPath, options) {
             });
             if (todoItems.length > 10) {
                 console.log(chalk.gray(`\n  ... and ${todoItems.length - 10} more`));
+            }
+        }
+
+        let repeatedBlocks = [];
+        for (const data of lineHashes.values()) {
+            if (data.count > 1) {
+                repeatedBlocks.push(data);
+            }
+        }
+
+        if (repeatedBlocks.length > 0) {
+            section("CODE REPETITIONS");
+            console.log(`${chalk.bold("Total Repeated Blocks")}: ${chalk.yellow(repeatedBlocks.length)}\n`);
+            repeatedBlocks.slice(0, 5).forEach((item, idx) => {
+                console.log(chalk.bold.blue(`Block ${idx + 1} (Repeated ${item.count} times)`));
+                item.locations.forEach(loc => {
+                    console.log(`  ${chalk.cyan(loc.file)}:${chalk.yellow(loc.line)}`);
+                });
+                console.log(`\n${chalk.bgGray.white.bold(" duplicated code ")}`);
+                console.log(chalk.gray(`  ${item.content.replace(/\n/g, '\n  ')}\n`));
+                console.log(chalk.green(`  💡 Suggestion: Extract this duplicated logic to keep your code DRY.\n`));
+            });
+            if (repeatedBlocks.length > 5) {
+                console.log(chalk.gray(`  ... and ${repeatedBlocks.length - 5} more`));
             }
         }
 
@@ -350,6 +405,7 @@ function scanDir(dirPath, options) {
             files: fileCount,
             linesOfCode: totalLinesOfCode,
             repeatedLines: repeatedLinesCount,
+            repeatedBlocksList: repeatedBlocks,
             totalSize: totalSize,
             largestFile: { name: largestFileName, size: largestFileSize },
             smallestFile: { name: smallestFileName, size: smallestFileSize },
